@@ -1,0 +1,14 @@
+name: network-tester
+region: nyc
+services:
+- name: web-tester
+  instance_count: 1
+  instance_size_slug: basic-xxs
+  # FIX: You must include this github block
+  github:
+    repo: polymath-pat/app_pf-cnnct
+    branch: main
+    deploy_on_push: true
+  source_dir: /
+  run_command: gunicorn app:app
+  http_port: 8080
