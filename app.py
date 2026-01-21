@@ -1,55 +1,17 @@
 import os
 import requests
 from flask import Flask, request, jsonify
-
-app = Flask(__name__)
-from werkzeug.middleware.proxy_fix import ProxyFix
-
-# Add this right after app = Flask(__name__)
-# We vibe coding now, boi...
-app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
-
-@app.route('/test')
-def network_check():
-    # This pulls the 'target' from the URL. 
-    # Example: /test?target=http://93.184.216.34
-    target = request.args.get('target')
-
-    if not target:
-        return jsonify({
-            "error": "Please provide a target. Usage: /test?target=http://<IP_OR_URL>"
-        }), 400
-
-    # Ensure the target has a scheme; if it's just an IP, we'll assume http
-    if not target.startswith(('http://', 'https://')):
-        target = f'http://{target}'
-
-    try:
-        # 5-second timeout ensures the app doesn't hang on dead IPs
-        response = requests.get(target, timeout=5)
-        return jsonify({
-            "status": "Connected",
-            "destination": target,
-            "http_code": response.status_code,
-            "headers": dict(response.headers),
-            "content_preview": response.text[:250]
-        })
-    except requests.exceptions.ConnectTimeout:
-        return jsonify({"status": "Failed", "error": "Connection Timed Out"}), 504
-    except requests.exceptions.ConnectionError as e:
-        return jsonify({"status": "Failed", "error": f"Connection Refused: {str(e)}"}), 502
-    except Exception as e:
-        return jsonify({"status": "Error", "error": str(e)}), 500
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host='0.0.0.0', port=port)import os
-import requests
-from flask import Flask, request, jsonify
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
+
+# we vibe coding now boi...
 app = Flask(__name__)
+
+from werkzeug.middleware.proxy_fix import ProxyFix
+
+# Add this right after app = Flask(__name__)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
 # Initialize Limiter
 # storage_uri="memory://" is fine for single instances. 
