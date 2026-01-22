@@ -1,10 +1,9 @@
-name: network-tester
+name: ap-cnnct
 region: nyc
 services:
 - name: web-tester
   instance_count: 1
   instance_size_slug: basic-xxs
-  # FIX: You must include this github block
   github:
     repo: polymath-pat/app_pf-cnnct
     branch: main
