@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 jobs:
-  test-and-validate: # Fixed indentation here
+  test-and-validate:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -46,6 +46,7 @@ jobs:
         working-directory: ./frontend
         run: npm run build 
 
+      # --- DO VALIDATION ---
       - name: Install doctl
         uses: digitalocean/action-doctl@v2
         with:
@@ -84,10 +85,33 @@ jobs:
       - name: Fetch App URL
         id: get_url
         run: |
+          # Ensure exactly two curly braces here
           RAW_URL=$(doctl apps get ${{ secrets.DIGITALOCEAN_APP_ID }} --format DefaultIngress --no-header)
           echo "APP_URL=$RAW_URL" >> $GITHUB_ENV
           echo "Detected App URL: $RAW_URL"
   
       - name: Probe Application Endpoint
         run: |
-          TARGET_URL="${{ env.APP_URL }
+          TARGET_URL="${{ env.APP_URL }}/healthz"
+          echo "Probing $TARGET_URL..."
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --retry 5 --retry-delay 5 "$TARGET_URL")
+          
+          if [ "$STATUS" -eq 200 ]; then
+            echo "✅ Health check passed!"
+          else
+            echo "❌ Health check failed with status $STATUS"
+            exit 1
+          fi
+  
+      - name: Rollback on Health Check Failure
+        if: failure()
+        run: |
+          echo "Initiating rollback..."
+          PREV_DEPLOY_ID=$(doctl apps list-deployments ${{ secrets.DIGITALOCEAN_APP_ID }} --format ID,Phase --no-header | grep "ACTIVE" | awk 'NR==2 {print $1}')
+          
+          if [ -n "$PREV_DEPLOY_ID" ]; then
+            doctl apps rollback ${{ secrets.DIGITALOCEAN_APP_ID }} --deployment-id $PREV_DEPLOY_ID --wait
+          else
+            echo "No valid previous deployment found."
+            exit 1
+          fi
