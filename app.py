@@ -26,9 +26,7 @@ limiter = Limiter(
 def health_check():
     return jsonify({"status": "ok"}), 200
 
-# 2. UPDATED: Path matches the spec.yaml route
-# We use /api/cnnct so the Frontend fetch('/api/cnnct') hits exactly right.
-@app.route('/api/cnnct')
+@app.route('/cnnct')
 @limiter.limit("5 per minute")
 def network_check():
     target = request.args.get('target')

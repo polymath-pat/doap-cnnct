@@ -92,7 +92,7 @@ jobs:
   
       - name: Probe Application Endpoint
         run: |
-          TARGET_URL="${{ env.APP_URL }}/healthz"
+          TARGET_URL="${{ env.APP_URL }}/api/healthz"
           echo "Probing $TARGET_URL..."
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" --retry 5 --retry-delay 5 "$TARGET_URL")
           
