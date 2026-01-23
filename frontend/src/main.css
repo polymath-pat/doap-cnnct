@@ -1,28 +1,16 @@
-const testBtn = document.getElementById('testBtn') as HTMLButtonElement;
-const targetInput = document.getElementById('target') as HTMLInputElement;
-const resultsDiv = document.getElementById('results') as HTMLDivElement;
-const outputPre = document.getElementById('output') as HTMLPreElement;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-testBtn.addEventListener('click', async () => {
-    const target = targetInput.value;
-    if (!target) return alert('Enter a target!');
+/* Custom Glow Effect for the Results Box */
+#results {
+    border: 1px solid rgba(74, 222, 128, 0.2);
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+}
 
-    testBtn.disabled = true;
-    testBtn.innerText = 'Testing...';
-    resultsDiv.classList.add('hidden');
-
-    try {
-        // We hit the backend at /api/test (per our spec routing)
-        const response = await fetch(`/api/cnnct?target=${target}`);
-        const data = await response.json();
-        
-        resultsDiv.classList.remove('hidden');
-        outputPre.innerText = JSON.stringify(data, null, 2);
-    } catch (err) {
-        outputPre.innerText = 'Error: Could not reach backend.';
-        resultsDiv.classList.remove('hidden');
-    } finally {
-        testBtn.disabled = false;
-        testBtn.innerText = 'Run Test';
-    }
-});
+/* Smooth Transition for the Test Button */
+#testBtn:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+    filter: grayscale(0.5);
+}
