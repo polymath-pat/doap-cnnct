@@ -61,5 +61,6 @@ def ratelimit_handler(e):
     }), 429
 
 if __name__ == "__main__":
+    host = os.environ.get("HOST", "127.0.0.1")
     port = int(os.environ.get("PORT", 8080))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host=host, port=port)
