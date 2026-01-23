@@ -13,6 +13,8 @@ COPY app.py .
 # Set environment variables for Bandit/Security and Gunicorn
 ENV HOST=0.0.0.0
 ENV PORT=8080
+# logging support
+ENV PYTHONUNBUFFERED=1
 
 EXPOSE 8080
 
