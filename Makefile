@@ -11,7 +11,7 @@ check: ## Verify health of all services
 	@$(COMPOSE) exec redis redis-cli ping | grep -q "PONG" && echo "✅ Redis is online" || echo "❌ Redis is offline"
 	
 	@echo "🔍 Checking Backend API..."
-	@curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/test?target=1.1.1.1 | grep -q "200" && echo "✅ Backend is responding" || echo "❌ Backend is failing"
+	@curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/cnnct?target=doompatrol.io | grep -q "200" && echo "✅ Backend is responding" || echo "❌ Backend is failing"
 	
 	@echo "🔍 Checking Frontend UI..."
 	@curl -s -o /dev/null -w "%{http_code}" http://localhost | grep -q "200" && echo "✅ Frontend is serving" || echo "❌ Frontend is failing"
@@ -30,7 +30,8 @@ down: ## Stop and remove all containers
 	$(COMPOSE) down
 
 logs: ## Follow logs from all containers
-	$(COMPOSE) logs -f
+	@echo "Run $(COMPOSE) logs -f <COMPONENT>" 
+	@echo "Where <COMPONENT> is one of backend, frontend or redis"
 
 clean: ## Remove containers and delete volumes (wipes Redis data)
 	$(COMPOSE) down -v
