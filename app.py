@@ -45,6 +45,7 @@ def check_dns(domain):
         ips = [ip.to_text() for ip in result]
         return jsonify({"target": domain, "records": ips, "timestamp": time.time()})
     except Exception as e:
+        logger.error(f"DNS lookup failed for {domain}: {str(e)}")
         return jsonify({"error": str(e)}), 400
 
 # Nginx proxies /api/cnnct to /cnnct
@@ -62,10 +63,13 @@ def cnnct():
             latency = (time.perf_counter() - start_time) * 1000
             results["latency_ms"] = round(latency, 2)
     except Exception:
-        pass
+        # B110: pass is replaced with a log to indicate the port is closed/unreachable
+        logger.info(f"Connection failed to {target} on port 443")
+    
     return jsonify(results)
 
 if __name__ == "__main__":
-    host = os.environ.get("HOST", "0.0.0.0")
+    # B104: Binding to 0.0.0.0 is required for container networking
+    host = os.environ.get("HOST", "0.0.0.0")  # nosec B104
     port = int(os.environ.get("PORT", 8080))
     app.run(host=host, port=port)
