@@ -23,7 +23,7 @@ lint-frontend: ## Check TypeScript types by running a build
 
 validate-spec: ## Validate DigitalOcean App Spec
 	@echo "🔍 Validating App Spec..."
-	doctl apps spec validate spec.yaml
+	doctl apps spec validate .do/app.yaml
 
 # --- INFRASTRUCTURE ---
 
