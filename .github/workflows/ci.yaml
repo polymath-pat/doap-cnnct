@@ -26,7 +26,6 @@ jobs:
         run: |
           npm install
           npm run build
-        # This creates the ./frontend/dist folder required by the Dockerfile
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -43,7 +42,6 @@ jobs:
 
       - name: Run Full Test Suite
         run: make test-all
-        # make test-all triggers test-security, then up (build), then test-e2e
 
       - name: Upload Screenshots on Failure
         if: failure()
@@ -55,7 +53,8 @@ jobs:
   deploy:
     name: Deploy to DigitalOcean
     needs: quality-gate
-    if: github.ref == 'refs/heads/main'
+    # UPDATE: Condition expanded to include pull_request events for Preview deployments
+    if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
