@@ -81,9 +81,10 @@ def cnnct():
 
     return jsonify(results)
 
-# 4. Entry Point
+
 if __name__ == "__main__":
-    host = os.environ.get("HOST", "0.0.0.0")
+    # Use # nosec to tell Bandit this binding is intentional for container networking
+    host = os.environ.get("HOST", "0.0.0.0")  # nosec
     port = int(os.environ.get("PORT", 8080))
     
     logger.info(f"Starting application on {host}:{port}")
