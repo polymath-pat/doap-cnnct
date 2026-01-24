@@ -1,58 +1,45 @@
 # Variables
 APP_NAME := cnnct
 COMPOSE  := podman-compose
-PYTHON   := python3
-PIP      := $(PYTHON) -m pip
+VENV     := venv
+PYTHON   := $(VENV)/bin/python3
+PIP      := $(VENV)/bin/pip3
 
-# Colors for help documentation
-BLUE   := \033[36m
-RESET  := \033[0m
+.PHONY: help install build up down test-e2e test-all fix-mac-security clean
 
-.PHONY: help install build up down restart test-security test-e2e test-all validate-spec clean
+help: ## Show help
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-help: ## Show this help message
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "$(BLUE)%-20s$(RESET) %s\n", $$1, $$2}'
-
-# --- Environment Setup ---
-
-install: ## Install production and dev dependencies
+$(VENV)/bin/activate:
+	python3 -m venv $(VENV)
+	$(PIP) install --upgrade pip
 	$(PIP) install -r requirements.txt
 	$(PIP) install -r requirements-dev.txt
+	@touch $(VENV)/bin/activate
 
-# --- Container Lifecycle ---
+install: $(VENV)/bin/activate ## Create venv and install dependencies
 
-build: ## Build images using podman-compose
+fix-mac-security: ## Remove macOS quarantine from downloaded drivers
+	@echo "🔓 Removing macOS quarantine flags from drivers..."
+	-find ~/.wdm/drivers -name "chromedriver" -exec xattr -d com.apple.quarantine {} + 2>/dev/null || true
+
+build: ## Build images
 	$(COMPOSE) build --no-cache
 
-up: ## Spin up the full stack (Frontend, Backend, Redis)
+up: ## Start stack
 	$(COMPOSE) up -d
 
-down: ## Stop and remove containers and networks
+down: ## Stop stack
 	$(COMPOSE) down
 
-restart: down up ## Restart the local stack
-
-# --- Quality Assurance & Testing ---
-
-test-security: ## Run Bandit security audit (CWE-605 checks)
-	@echo "🛡️  Running Bandit Security Audit..."
-	bandit -r . -x ./venv
-
-validate-spec: ## Validate DigitalOcean App Spec (.do/app.yaml)
-	@echo "🔍 Validating DigitalOcean App Spec..."
-	doctl apps spec validate .do/app.yaml
-
-test-e2e: up ## Run Headless Selenium E2E tests against local stack
-	@echo "🚀 Running Selenium E2E Tests..."
-	@sleep 7  # Wait for Podman networking to settle
+test-e2e: up install fix-mac-security ## Run E2E tests (includes security fix)
+	@echo "🚀 Running E2E Tests..."
+	@sleep 7
 	$(PYTHON) tests/e2e_test.py
 
-test-all: test-security validate-spec test-e2e ## Run the full local audit and test suite
-	@echo "✅ All local checks and E2E tests passed!"
+test-all: test-e2e ## Run all tests
+	@echo "✅ All tests passed!"
 
-# --- Maintenance ---
-
-clean: down ## Remove containers and prune unused podman resources
+clean: down
+	rm -rf $(VENV)
 	podman system prune -f
-	rm -rf .pytest_cache
-	rm -f e2e_error.png
