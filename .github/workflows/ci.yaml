@@ -2,7 +2,7 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [main, 'feature/**', 'fix/**', 'bug/**']
+    branches: [main]
   pull_request:
     branches: [main, 'feature/**', 'fix/**', 'bug/**']
 
@@ -55,6 +55,25 @@ jobs:
         with:
           name: e2e-failure-screenshot
           path: e2e_error.png
+
+  # NEW JOB: Build and Push to DOCR
+  build-and-push:
+    name: Build & Push Image
+    needs: e2e-testing
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+      - name: Log in to DigitalOcean Container Registry
+        run: doctl registry login --expiry-seconds 600
+      - name: Build and Push Backend Image
+        run: |
+          # Tag with the commit SHA for unique, immutable deployments
+          docker build -t registry.digitalocean.com/your-registry/backend-api:${{ github.sha }} -f backend.Dockerfile .
+          docker push registry.digitalocean.com/your-registry/backend-api:${{ github.sha }}
 
   deploy:
     name: DigitalOcean Deploy
