@@ -2,7 +2,7 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [main, 'feature/**', 'fix/**', 'bug/**']
+    branches: [main]
   pull_request:
     branches: [main, 'feature/**', 'fix/**', 'bug/**']
 
@@ -40,32 +40,71 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Setup System Deps
+
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Log in to DOCR
+        run: doctl registry login --expiry-seconds 600
+
+      - name: Setup Infrastructure Deps
         run: |
-          sudo apt-get update && sudo apt-get install -y google-chrome-stable
+          sudo apt-get update && sudo apt-get install -y podman
           pip install podman-compose
-      - name: Build and Test
+
+      - name: Run E2E Tests
         run: |
-          # Matches Makefile: build assets -> spin up containers -> test
+          # 1. Start the app (API + Redis + Frontend)
           make infra-up
-          make test-e2e
-      - name: Upload Screenshots
+          
+          # 2. Run the tester container on the host network
+          # We mount the tests folder to get the screenshot back if it fails
+          docker run --rm \
+            --network host \
+            -v $(pwd)/tests:/app/tests \
+            registry.digitalocean.com/kadet-cantu/e2e-tester:latest \
+            python3 tests/e2e_test.py
+
+      - name: Upload Screenshots on Failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: e2e-failure-screenshot
-          path: e2e_error.png
+          path: tests/error-screenshot.png
 
-  deploy:
-    name: DigitalOcean Deploy
+  build-and-push:
+    name: Build & Push Backend Image
     needs: e2e-testing
-    if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Deploy to App Platform
-        uses: digitalocean/app_action/deploy@v2
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
         with:
           token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
-          app_spec_location: ".do/app.yaml"
-          deploy_pr_preview: ${{ github.event_name == 'pull_request' }}
+      - name: Log in to DOCR
+        run: doctl registry login --expiry-seconds 600
+      - name: Build and Push
+        run: |
+          docker build -t registry.digitalocean.com/kadet-cantu/backend-api:${{ github.sha }} -f backend.Dockerfile .
+          docker push registry.digitalocean.com/kadet-cantu/backend-api:${{ github.sha }}
+
+  deploy:
+    name: DigitalOcean Deploy
+    needs: build-and-push
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+      - name: Deploy and Update Tag
+        run: |
+          # Trigger deployment with updated image tag
+          APP_ID=$(doctl app list --format ID --no-header | head -n 1)
+          doctl app update $APP_ID --spec .do/app.yaml --set-image backend-api=registry.digitalocean.com/kadet-cantu/backend-api:${{ github.sha }}
