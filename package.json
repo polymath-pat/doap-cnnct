@@ -1,0 +1,8 @@
+{
+  "name": "doap-cnnct-infra",
+  "private": true,
+  "dependencies": {
+    "@pulumi/pulumi": "^3",
+    "@pulumi/digitalocean": "^4"
+  }
+}
