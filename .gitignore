@@ -218,7 +218,6 @@ package.json
 .pulumi/
 bin/
 obj/
-Pulumi.yaml
 Pulumi.dev.yaml
 
 # Node / Dependencies
