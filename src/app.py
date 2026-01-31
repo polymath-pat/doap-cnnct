@@ -5,6 +5,7 @@ import socket
 import requests
 import time
 import dns.resolver  # Requires dnspython in requirements.txt
+import redis
 from flask import Flask, request, jsonify
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -103,6 +104,39 @@ def diagnose_url():
     except Exception as e:
         logger.error(f"HTTP Diag failed for {url}: {str(e)}")
         return jsonify({"error": str(e)}), 400
+
+@app.route('/status', methods=['GET'])
+@limiter.limit("5 per minute")
+def redis_status():
+    if redis_url == "memory://":
+        return jsonify({
+            "backend": "memory",
+            "connected": False,
+            "message": "Using in-memory rate limiting (no Redis configured)"
+        })
+
+    try:
+        start_time = time.perf_counter()
+        r = redis.from_url(redis_url, socket_connect_timeout=3)
+        info = r.info(section="server")
+        latency = (time.perf_counter() - start_time) * 1000
+
+        return jsonify({
+            "backend": "redis",
+            "connected": True,
+            "latency_ms": round(latency, 2),
+            "version": info.get("redis_version", "unknown"),
+            "uptime_seconds": info.get("uptime_in_seconds", 0),
+            "connected_clients": r.info(section="clients").get("connected_clients", 0),
+            "used_memory_human": r.info(section="memory").get("used_memory_human", "unknown"),
+        })
+    except Exception as e:
+        logger.error(f"Redis status check failed: {str(e)}")
+        return jsonify({
+            "backend": "redis",
+            "connected": False,
+            "error": str(e)
+        }), 503
 
 if __name__ == "__main__":
     # Bandit B104: binding to 0.0.0.0 is required for container networking

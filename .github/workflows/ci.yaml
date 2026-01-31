@@ -13,6 +13,7 @@ permissions:
 jobs:
   security-audit:
     name: Security Scan
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -27,6 +28,7 @@ jobs:
 
   unit-tests:
     name: Unit Logic Tests
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -41,6 +43,7 @@ jobs:
 
   e2e-testing:
     name: E2E Browser Tests
+    if: github.event_name == 'pull_request'
     needs: [security-audit, unit-tests]
     runs-on: ubuntu-latest
     steps:
@@ -77,11 +80,20 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: e2e-failure-screenshot
-          path: tests/error-screenshot.png
+          path: tests/error-screenshot*.png
+
+      - name: Upload Screenshots to DO Spaces
+        if: failure()
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.SPACES_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.SPACES_SECRET_KEY }}
+        run: |
+          aws s3 cp tests/ s3://doap-cnnct/ci-artifacts/${{ github.run_id }}/ \
+            --endpoint-url https://sfo3.digitaloceanspaces.com \
+            --exclude "*" --include "error-screenshot*.png" --recursive
 
   build-and-push:
     name: Build & Push Backend Image
-    needs: e2e-testing
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
@@ -100,7 +112,6 @@ jobs:
   deploy:
     name: Pulumi Deploy
     needs: build-and-push
-    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

@@ -47,5 +47,42 @@ def test_frontend_loads():
     finally:
         driver.quit()
 
+def test_status_tab():
+    driver = setup_driver()
+    try:
+        url = "http://localhost:3000"
+        print(f">>> Navigating to {url}")
+        driver.get(url)
+        time.sleep(2)
+
+        # Click the Status tab
+        status_btn = driver.find_element("id", "nav-status")
+        status_btn.click()
+        print(">>> Clicked Status tab")
+
+        # Wait for the status results to render
+        time.sleep(3)
+
+        # The probe form should be hidden
+        probe_form = driver.find_element("id", "probe-form")
+        assert "hidden" in probe_form.get_attribute("class"), "Probe form should be hidden on Status tab"
+
+        # The results area should contain status output (backend type shown)
+        results = driver.find_element("id", "results-area")
+        results_text = results.text
+        print(f">>> Status results: {results_text}")
+        assert "Backend:" in results_text or "backend" in results_text.lower(), "Status results should show backend info"
+        print("✅ E2E Test Passed: Status tab loaded and rendered results.")
+
+    except Exception as e:
+        screenshot_path = "tests/error-screenshot-status.png"
+        driver.save_screenshot(screenshot_path)
+        print(f"🔥 E2E Failure: {e}")
+        print(f"📸 Screenshot saved to {screenshot_path}")
+        raise
+    finally:
+        driver.quit()
+
 if __name__ == "__main__":
     test_frontend_loads()
+    test_status_tab()

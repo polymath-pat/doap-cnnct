@@ -4,13 +4,24 @@ const resultsArea = document.getElementById('results-area') as HTMLDivElement;
 const navPort = document.getElementById('nav-port') as HTMLButtonElement;
 const navDns = document.getElementById('nav-dns') as HTMLButtonElement;
 const navDiag = document.getElementById('nav-diag') as HTMLButtonElement;
+const navStatus = document.getElementById('nav-status') as HTMLButtonElement;
 const sidebar = document.getElementById('history-sidebar') as HTMLElement;
 const historyList = document.getElementById('history-list') as HTMLDivElement;
 const toggleHistory = document.getElementById('toggle-history') as HTMLButtonElement;
 const closeHistory = document.getElementById('close-history') as HTMLButtonElement;
 
-let currentTab: 'port' | 'dns' | 'diag' = 'port';
+const presetsArea = document.getElementById('presets-area') as HTMLDivElement;
+
+let currentTab: 'port' | 'dns' | 'diag' | 'status' = 'port';
 let testHistory: any[] = JSON.parse(localStorage.getItem('cnnct_history') || '[]');
+let lastResponse: any = null;
+
+const PRESETS: { label: string; value: string }[] = [
+    { label: 'doompatrol.io', value: 'doompatrol.io' },
+    { label: 'Google DNS', value: '8.8.8.8' },
+    { label: 'Cloudflare', value: '1.1.1.1' },
+    { label: 'GitHub', value: 'github.com' },
+];
 
 function addToHistory(target: string, type: string, outcome: string) {
     const entry = { target, type, outcome, time: new Date().toLocaleTimeString() };
@@ -31,11 +42,48 @@ function renderHistory() {
     `).join('');
 }
 
+function copyButtonHtml(): string {
+    return `<button id="copy-json-btn" class="mt-3 w-full bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400 hover:text-white text-[10px] font-bold uppercase tracking-wider py-2 rounded-lg transition-all">Copy JSON</button>`;
+}
+
+function attachCopyHandler() {
+    const btn = document.getElementById('copy-json-btn');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+        if (!lastResponse) return;
+        navigator.clipboard.writeText(JSON.stringify(lastResponse, null, 2)).then(() => {
+            btn.textContent = 'Copied!';
+            btn.classList.add('text-emerald-400');
+            setTimeout(() => {
+                btn.textContent = 'Copy JSON';
+                btn.classList.remove('text-emerald-400');
+            }, 1500);
+        });
+    });
+}
+
+function renderPresets() {
+    if (currentTab === 'status') {
+        presetsArea.innerHTML = '';
+        return;
+    }
+    presetsArea.innerHTML = PRESETS.map(p => {
+        const val = currentTab === 'diag' ? `https://${p.value}` : p.value;
+        return `<button type="button" data-preset="${val}" class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-white/5 hover:bg-blue-600/30 text-slate-400 hover:text-blue-300 border border-white/10 transition-all">${p.label}</button>`;
+    }).join('');
+    presetsArea.querySelectorAll('[data-preset]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            targetInput.value = (btn as HTMLElement).dataset.preset!;
+            probeForm.requestSubmit();
+        });
+    });
+}
+
 toggleHistory.onclick = () => sidebar.classList.remove('-translate-x-full');
 closeHistory.onclick = () => sidebar.classList.add('-translate-x-full');
 
 function updateNav(active: HTMLButtonElement) {
-    [navPort, navDns, navDiag].forEach(btn => {
+    [navPort, navDns, navDiag, navStatus].forEach(btn => {
         btn.classList.remove('bg-white/10', 'text-blue-400');
         btn.classList.add('text-slate-400');
     });
@@ -47,18 +95,32 @@ navPort.onclick = () => {
     currentTab = 'port';
     updateNav(navPort);
     targetInput.placeholder = "Enter IP or Domain (e.g. 8.8.8.8)";
+    probeForm.classList.remove('hidden');
+    renderPresets();
 };
 
 navDns.onclick = () => {
     currentTab = 'dns';
     updateNav(navDns);
     targetInput.placeholder = "Enter Domain for DNS lookup...";
+    probeForm.classList.remove('hidden');
+    renderPresets();
 };
 
 navDiag.onclick = () => {
     currentTab = 'diag';
     updateNav(navDiag);
     targetInput.placeholder = "Enter URL (e.g. https://google.com)";
+    probeForm.classList.remove('hidden');
+    renderPresets();
+};
+
+navStatus.onclick = async () => {
+    currentTab = 'status';
+    updateNav(navStatus);
+    probeForm.classList.add('hidden');
+    renderPresets();
+    await fetchStatus();
 };
 
 probeForm.addEventListener('submit', async (e: Event) => {
@@ -78,18 +140,23 @@ probeForm.addEventListener('submit', async (e: Event) => {
         if (!response.ok) throw new Error(`Server returned ${response.status}`);
         
         const data = await response.json();
-        
+        lastResponse = data;
+
         if (currentTab === 'port') {
             renderPortResults(data);
+            attachCopyHandler();
             addToHistory(target, 'Port', data.tcp_443 ? 'Success' : 'Failed');
         } else if (currentTab === 'dns') {
             renderDnsResults(data);
+            attachCopyHandler();
             addToHistory(target, 'DNS', 'Resolved');
         } else if (currentTab === 'diag') {
             renderDiagResults(data);
+            attachCopyHandler();
             addToHistory(target, 'HTTP', `${data.http_code} OK`);
         }
     } catch (err) {
+        lastResponse = null;
         resultsArea.innerHTML = `<div class="p-4 bg-rose-500/20 text-rose-300 rounded-xl">Error: ${err}</div>`;
     }
 });
@@ -106,7 +173,7 @@ function renderPortResults(data: any) {
                 <span class="text-slate-300 text-sm font-medium uppercase">Port 443</span>
                 <span class="text-xs font-bold ${color}">${data.tcp_443 ? 'OPEN' : 'CLOSED'}</span>
             </div>
-        </div>`;
+        </div>` + copyButtonHtml();
 }
 
 function renderDnsResults(data: any) {
@@ -116,7 +183,7 @@ function renderDnsResults(data: any) {
             <div class="space-y-2">
                 ${data.records.map((ip: string) => `<div class="bg-white/5 p-2 rounded font-mono text-emerald-400 text-sm text-center border border-white/5">${ip}</div>`).join('')}
             </div>
-        </div>`;
+        </div>` + copyButtonHtml();
 }
 
 function renderDiagResults(data: any) {
@@ -134,7 +201,54 @@ function renderDiagResults(data: any) {
                 <div class="bg-white/5 p-2 rounded border border-white/5 text-slate-400 col-span-2">Type: <span class="text-white truncate">${data.content_type}</span></div>
                 <div class="bg-white/5 p-2 rounded border border-white/5 text-slate-400 col-span-2">Redirects: <span class="text-white">${data.redirects}</span></div>
             </div>
-        </div>`;
+        </div>` + copyButtonHtml();
+}
+
+async function fetchStatus() {
+    resultsArea.innerHTML = `<div class="p-4 bg-white/5 animate-pulse text-blue-300 rounded-xl">Checking status...</div>`;
+    try {
+        const response = await fetch('/api/status');
+        if (!response.ok) throw new Error(`Server returned ${response.status}`);
+        const data = await response.json();
+        lastResponse = data;
+        renderStatusResults(data);
+        attachCopyHandler();
+    } catch (err) {
+        lastResponse = null;
+        resultsArea.innerHTML = `<div class="p-4 bg-rose-500/20 text-rose-300 rounded-xl">Error: ${err}</div>`;
+    }
+}
+
+function renderStatusResults(data: any) {
+    const connected = data.connected;
+    const statusColor = connected ? 'text-emerald-400' : 'text-rose-400';
+    const statusText = connected ? 'CONNECTED' : 'DISCONNECTED';
+
+    let details = '';
+    if (data.backend === 'memory') {
+        details = `<div class="bg-white/5 p-2 rounded border border-white/5 text-slate-400 col-span-2">${data.message}</div>`;
+    } else if (connected) {
+        details = `
+            <div class="bg-white/5 p-2 rounded border border-white/5 text-slate-400">Version: <span class="text-white">${data.version}</span></div>
+            <div class="bg-white/5 p-2 rounded border border-white/5 text-slate-400">Latency: <span class="text-white">${data.latency_ms}ms</span></div>
+            <div class="bg-white/5 p-2 rounded border border-white/5 text-slate-400">Clients: <span class="text-white">${data.connected_clients}</span></div>
+            <div class="bg-white/5 p-2 rounded border border-white/5 text-slate-400">Memory: <span class="text-white">${data.used_memory_human}</span></div>
+            <div class="bg-white/5 p-2 rounded border border-white/5 text-slate-400 col-span-2">Uptime: <span class="text-white">${data.uptime_seconds}s</span></div>`;
+    } else {
+        details = `<div class="bg-white/5 p-2 rounded border border-white/5 text-rose-400 col-span-2">Error: ${data.error}</div>`;
+    }
+
+    resultsArea.innerHTML = `
+        <div class="pt-6 border-t border-white/10 mt-6 space-y-3">
+            <h3 class="text-white font-semibold flex items-center justify-between mb-4">
+                <span>Backend: <span class="text-blue-300">${data.backend}</span></span>
+                <span class="text-xs font-bold ${statusColor}">${statusText}</span>
+            </h3>
+            <div class="grid grid-cols-2 gap-2 text-[11px] font-mono">
+                ${details}
+            </div>
+        </div>` + copyButtonHtml();
 }
 
 renderHistory();
+renderPresets();
