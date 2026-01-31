@@ -1,58 +1,54 @@
 # CNNCT | Modern Network Connectivity Tester
 [![CI/CD Pipeline](https://github.com/polymath-pat/doap-cnnct/actions/workflows/ci.yaml/badge.svg)](https://github.com/polymath-pat/doap-cnnct/actions/workflows/ci.yaml)
 
-A modern, glassmorphic web application for probing network connectivity. Designed for reliability and speed, CNNCT provides real-time status updates for common service ports (80, 443) and HTTP availability.
+A glassmorphic web application for probing network connectivity and diagnostics. CNNCT tests TCP port connectivity, resolves DNS records, runs HTTP diagnostics, and reports backend health — all from a single UI.
 
-## 🚀 Features
-- **Modern Glassmorphic UI**: High-contrast, interactive interface with real-time feedback and backdrop blur effects.
-- **Automated Probing**: Tests TCP connectivity and HTTP status codes via a Flask backend.
-- **Scalable Architecture**: Built with Node.js, Python, and Valkey (Redis successor) for rate-limiting.
-- **Full CI/CD**: Modular testing pipeline with automated E2E validation and deployment to DigitalOcean.
+## Features
+- **Port Check** — TCP connectivity probe on port 443 with latency measurement
+- **DNS Lookup** — A record resolution for any domain
+- **HTTP Diagnostics** — Status codes, response times, download speed, redirects, and content type
+- **Backend Status** — Redis/Valkey health, memory usage, connected clients, and uptime
+- **Quick-Test Presets** — One-click preset targets for fast probing
+- **Export Results** — Copy any result as formatted JSON
+- **Test History** — Recent tests saved to localStorage
 
-## 🛠 Tech Stack
-- **Frontend**: Vite, React, Tailwind CSS
-- **Backend**: Python (Flask), Valkey/Redis
-- **Containerization**: Podman-Compose / Docker-Compose
-- **Infrastructure**: DigitalOcean App Platform
+## Tech Stack
+- **Frontend**: TypeScript, Vite, Tailwind CSS
+- **Backend**: Python 3.11 (Flask + Gunicorn)
+- **Rate Limiting**: Managed Valkey (Redis-compatible) via flask-limiter
+- **Containers**: Podman / Docker with multi-stage builds
+- **Infrastructure**: DigitalOcean App Platform, managed via Pulumi
+- **CI/CD**: GitHub Actions (security scan, unit tests, E2E browser tests, auto-deploy)
 
-## 📦 Getting Started
+## Getting Started
 
 ### Prerequisites
-- [Podman](https://podman.io/) or Docker
-- [Podman-compose](https://github.com/containers/podman-compose) or Docker-compose
-- Python 3.11+ (for local virtual environment)
+- [Podman](https://podman.io/) (or Docker) + podman-compose (or docker-compose)
+- Python 3.11+
 
 ### Local Development
-1. **Clone the repository**:
-   ```bash
-   git clone [https://github.com/polymath-pat/doap-cnnct.git](https://github.com/polymath-pat/doap-cnnct.git)
-   cd doap-cnnct
-   ```
+```bash
+git clone https://github.com/polymath-pat/doap-cnnct.git
+cd doap-cnnct
+make infra-up
+```
 
-2. **Spin up the environment**:
-    ```bash
-    make test-all
-    ```
+- **Frontend**: http://localhost:3000
+- **Backend API**: http://localhost:8081
 
-*This modular command handles: virtual environment setup (`virt-env`), container builds, infrastructure startup, security audits, and E2E testing.*
-3. **Access the app**:
-Open [http://localhost:8081](http://localhost:8081) in your browser.
+### Testing
+```bash
+make test-security    # Bandit security audit
+make test-unit        # Pytest unit tests
+make test-e2e         # Selenium browser tests (requires infra-up)
+make test-all         # Full pipeline: security, unit, infra, e2e, cleanup
+make clean            # Stop containers and remove caches
+```
 
-## 🧪 Testing
+## Deployment
 
-The project uses a modular testing suite defined in the `Makefile`:
+Merges to `main` automatically build, push, and deploy to [cnnct.metaciety.net](https://cnnct.metaciety.net) via GitHub Actions and Pulumi.
 
-* **Virtual Env**: `make virt-env`
-* **Security Audit**: `make test-security` (using Bandit)
-* **E2E Execution**: `make run-e2e` (using Selenium/ChromeDriver)
-* **Full Clean**: `make clean`
+## License
 
-## 🌐 Deployment
-
-The app is automatically deployed to [cnnct.metaciety.net](https://cnnct.metaciety.net) upon a successful "Quality Gate" pass on the `main` branch.
-
-**Preview Environments:** Every Pull Request generates an ephemeral DigitalOcean environment for testing features before they are merged.
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](https://www.google.com/search?q=LICENSE) file for details.
+MIT
