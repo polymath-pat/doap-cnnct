@@ -211,8 +211,6 @@ node_modules/
 
 # selenium test images
 *.png
-package-lock.json
-package.json
 
 # Pulumi
 .pulumi/
